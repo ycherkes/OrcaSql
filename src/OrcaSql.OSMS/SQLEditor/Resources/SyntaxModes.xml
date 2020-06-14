@@ -1,0 +1,3 @@
+﻿<SyntaxModes version="1.0">
+  <Mode extensions=".sql" file="SQL-Mode.xshd" name="SQLSSMS"/>
+</SyntaxModes>

@@ -1,0 +1,40 @@
+using System;
+using System.Collections;
+using System.Linq;
+using OrcaSql.Core.Engine.Pages;
+using OrcaSql.Framework;
+
+namespace OrcaSql.Core.Engine.Records
+{
+	public class ClusteredIndexRecord : Record
+	{
+		public ClusteredIndexRecord(byte[] bytes, Page page)
+			: base(page)
+		{
+			parseStatusBitsA(new BitArray(new[] { bytes[0] }));
+
+			// Index records don't contain fixed length header - it's stored in the page header
+			FixedLengthData = bytes.Skip(1).Take(Page.Header.Pminlen - 1).ToArray();
+
+            PageId = new PagePointer(ArrayHelper.SliceArray(FixedLengthData, FixedLengthData.Length-6, 6));
+		}
+
+        public PagePointer PageId { get; set; }
+
+        private void parseStatusBitsA(BitArray bits)
+		{
+			// Bit 0 unknown - probably versioning bit as in primary records
+
+			// Bits 1-3 represents record type
+			Type = (RecordType)((Convert.ToByte(bits[1])) + (Convert.ToByte(bits[2]) << 1) + (Convert.ToByte(bits[3]) << 2));
+
+			// Bit 4 determines whether a null bitmap is present
+			HasNullBitmap = bits[4];
+
+			// Bit 5 determines whether there are variable length columns
+			HasVariableLengthColumns = bits[5];
+
+			// Bits 6-7 not used
+		}
+	}
+}
