@@ -1,9 +1,9 @@
 A fork of existing repository https://github.com/improvedk/OrcaMDF with the following enhancements:
 
- - modern data types support;
+ - modern data types support (Xml, HierarchyId, Geography, Geometry, DateTime2, DateTimeOffset);
  - improved formatting of the data shown in grid;
  - caching system tables only;
- - big databases support;
+ - large databases support (tested on the Stack Overflow 2014 database https://www.brentozar.com/archive/2015/10/how-to-download-the-stack-overflow-database-via-bittorrent/);
  - schema added to names of the tables and data types;
  - fixed some bugs (like usage of pg_first - it works mainly for the sample DBs, but doesn't for real DBs);
  - ability to generate an SQL script to fix corrupted page of database based on the page data from the file;
@@ -11,7 +11,7 @@ A fork of existing repository https://github.com/improvedk/OrcaMDF with the foll
  - columns with zero physical length (with default constraints);
  - skipping dropped column data;
  - skipping ghost ang ghost forwarded records;
- - plugins support;
+ - external plugins support;
  - collation support;
  - SQL syntax highlighting;
- - speed improvement.
+ - performance optimization.
