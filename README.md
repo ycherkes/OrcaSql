@@ -17,5 +17,5 @@ A solution based on existing Mark's S. Rasmussen repository https://github.com/i
  - similar to SSMS NULL value highlighting;
  - performance optimization.
 
-Also you can try to use OrcaSql with my SqlBackupReader.Demo plugin here: https://github.com/ycherkes/YCherkes.SqlBackupReader.Demo.
-This demo version of plugin supports an uncompressed SQL Server backup files.
+You can also try using OrcaSql with my SqlBackupReader.Demo plugin here: https://github.com/ycherkes/YCherkes.SqlBackupReader.Demo.
+This demo version of the plugin supports uncompressed SQL Server backup files.
