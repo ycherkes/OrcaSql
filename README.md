@@ -1,4 +1,4 @@
-A fork of existing repository https://github.com/improvedk/OrcaMDF with the following enhancements:
+A solution based on existing Mark's S. Rasmussen repository https://github.com/improvedk/OrcaMDF with the following enhancements:
 
  - modern data types support (Xml, HierarchyId, Geography, Geometry, DateTime2, DateTimeOffset);
  - improved formatting of the data shown in grid;
