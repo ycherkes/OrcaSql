@@ -14,4 +14,5 @@ A fork of existing repository https://github.com/improvedk/OrcaMDF with the foll
  - external plugins support;
  - collation support;
  - SQL syntax highlighting;
+ - similar to SSMS NULL value highlighting;
  - performance optimization.
