@@ -195,7 +195,6 @@ namespace OrcaSql.OSMS
                 var typeColumnsNode = typeNode.Nodes.Add("Columns");
                 var columns = Database.Dmvs.Columns
                     .Where(c => c.ObjectID == type.t.TypeTableObjectId)
-                    .OrderBy(c => c.Name)
                     .ToArray();
 
                 foreach (var c in columns)
