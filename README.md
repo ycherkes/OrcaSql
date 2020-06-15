@@ -1,4 +1,9 @@
-A solution based on existing Mark's S. Rasmussen repository https://github.com/improvedk/OrcaMDF with the following enhancements:
+
+OrcaSql
+=======
+OrcaSql is a parser for Microsoft SQL Server data files. It allows you to read SQL Server data files without the use of SQL Server.
+
+This solution based on existing Mark's S. Rasmussen repository https://github.com/improvedk/OrcaMDF with the following enhancements:
 
  - modern data types support (Xml, HierarchyId, Geography, Geometry, DateTime2, DateTimeOffset);
  - improved formatting of the data shown in grid;
@@ -16,3 +21,6 @@ A solution based on existing Mark's S. Rasmussen repository https://github.com/i
  - SQL syntax highlighting;
  - similar to SSMS NULL value highlighting;
  - performance optimization.
+
+You can also try OrcaSql with my SqlBackupReader.Demo plugin here: https://github.com/ycherkes/YCherkes.SqlBackupReader.Demo.
+This demo version of the plugin supports uncompressed SQL Server backup files.
