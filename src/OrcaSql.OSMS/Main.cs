@@ -395,7 +395,6 @@ namespace OrcaSql.OSMS
 				var tableColumnsNode = tableNode.Nodes.Add("Columns");
 				var columns = Database.Dmvs.Columns
 					.Where(c => c.ObjectID == t.ObjectID)
-					.OrderBy(c => c.Name)
                     .ToArray();
 
 				foreach (var c in columns)
