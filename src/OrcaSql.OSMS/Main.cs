@@ -85,13 +85,7 @@ namespace OrcaSql.OSMS
 		private static void LogException(Exception ex)
 		{
 			File.AppendAllText("ErrorLog.txt",
-				DateTime.Now +
-				Environment.NewLine +
-				"----------" +
-				Environment.NewLine +
-				ex +
-				Environment.NewLine +
-				Environment.NewLine);
+                $"{DateTime.Now}\r\n----------\r\n{ex}\r\n\r\n");
 
 			var msg =
 				"An exception has occurred:\r\n\r\n" +
