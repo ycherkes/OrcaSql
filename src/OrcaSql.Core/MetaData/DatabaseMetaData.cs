@@ -1,24 +1,24 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using OrcaSql.Core.Engine;
 using OrcaSql.Core.MetaData.DMVs;
 using OrcaSql.Core.MetaData.Enumerations;
 using OrcaSql.Core.MetaData.Exceptions;
 using OrcaSql.Core.MetaData.TableValuedDictionaries;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace OrcaSql.Core.MetaData
 {
-	public class DatabaseMetaData
-	{
-		private readonly Database _db;
+    public class DatabaseMetaData
+    {
+        private readonly Database _db;
 
-		internal DatabaseMetaData(Database db)
-		{
-			_db = db;
-		}
+        internal DatabaseMetaData(Database db)
+        {
+            _db = db;
+        }
 
-		public DataRow GetEmptyIndexRow(string tableName, string indexName)
+        public DataRow GetEmptyIndexRow(string tableName, string indexName)
         {
             // Get table
             var table = _db.Dmvs.Objects
@@ -65,7 +65,7 @@ namespace OrcaSql.Core.MetaData
 
             // Add columns as specified in sysiscols
             var columnsList = new List<DataColumn>();
-            foreach(var col in idxColumns)
+            foreach (var col in idxColumns)
             {
                 var sqlType = _db.Dmvs.Types.Single(x => x.SystemTypeID == col.SystemTypeID);
 
@@ -73,12 +73,13 @@ namespace OrcaSql.Core.MetaData
 
                 var dc = new DataColumn(col.Name, sqlType.Name + "(" + col.MaxLength + ")")
                 {
-                    IsNullable = col.IsNullable, IsIncluded = col.IsIncludedColumn
+                    IsNullable = col.IsNullable,
+                    IsIncluded = col.IsIncludedColumn
                 };
 
                 columnsList.Add(dc);
             }
-			
+
             // Add remaining columns as specified in sysrscols
             foreach (var col in partitionColumns)
             {
@@ -104,7 +105,8 @@ namespace OrcaSql.Core.MetaData
                 // Thus we'll just give them an internal name for now.
                 var dc = new DataColumn("__rscol_" + col.KeyOrdinal, sqlType.Name + "(" + col.MaxLength + ")")
                 {
-                    IsNullable = col.IsNullable, IsIncluded = true
+                    IsNullable = col.IsNullable,
+                    IsIncluded = true
                 };
 
                 // Clustered index columns that are not explicitly included in the nonclustered index will be
@@ -128,33 +130,33 @@ namespace OrcaSql.Core.MetaData
 		/// if _any_ decimal column, for this table, has a negative leaf_offset value.
 		/// </summary>
 		internal bool PartitionHasVardecimalColumns(long partitionID)
-		{
-			// Get the vardecimal type id
-			byte vardecimalTypeID = _db.Dmvs.Types
-				.Where(t => t.Name == "decimal")
-				.Select(t => t.SystemTypeID)
-				.Single();
+        {
+            // Get the vardecimal type id
+            byte vardecimalTypeID = _db.Dmvs.Types
+                .Where(t => t.Name == "decimal")
+                .Select(t => t.SystemTypeID)
+                .Single();
 
-			// Get all partition columns of type decimal with a negative leaf_offset
-			int negativeLeafOffsetDecimalColumns = _db.Dmvs.SystemInternalsPartitionColumns
-				.Join(_db.Dmvs.SystemInternalsPartitions, pc => pc.PartitionID, p => p.PartitionID, (pc, p) => new { Column = pc, Partition = p })
-				.Count(x => x.Partition.PartitionID == partitionID 
-                            && x.Column.SystemTypeID == vardecimalTypeID 
+            // Get all partition columns of type decimal with a negative leaf_offset
+            int negativeLeafOffsetDecimalColumns = _db.Dmvs.SystemInternalsPartitionColumns
+                .Join(_db.Dmvs.SystemInternalsPartitions, pc => pc.PartitionID, p => p.PartitionID, (pc, p) => new { Column = pc, Partition = p })
+                .Count(x => x.Partition.PartitionID == partitionID
+                            && x.Column.SystemTypeID == vardecimalTypeID
                             && x.Column.LeafOffset < 0);
 
-			// If any decimal columns are stored as variable length, we're using vardecimals
-			return negativeLeafOffsetDecimalColumns > 0;
-		}
+            // If any decimal columns are stored as variable length, we're using vardecimals
+            return negativeLeafOffsetDecimalColumns > 0;
+        }
 
-		public DataRow GetEmptyDataRow(string tableName, int? schemaId = null)
-		{
-			// Get table
-			var table = _db.Dmvs.Objects
-				.SingleOrDefault(x => x.Name == tableName && (x.Type == ObjectType.USER_TABLE || x.Type == ObjectType.SYSTEM_TABLE)
+        public DataRow GetEmptyDataRow(string tableName, int? schemaId = null)
+        {
+            // Get table
+            var table = _db.Dmvs.Objects
+                .SingleOrDefault(x => x.Name == tableName && (x.Type == ObjectType.USER_TABLE || x.Type == ObjectType.SYSTEM_TABLE)
                                                           && (schemaId == null || x.SchemaID == schemaId));
 
-			if (table == null)
-				throw new UnknownTableException(tableName);
+            if (table == null)
+                throw new UnknownTableException(tableName);
 
             // Get index
             var clusteredIndex = _db.Dmvs.Indexes
@@ -196,7 +198,7 @@ namespace OrcaSql.Core.MetaData
             var columnType = "{0}";
 
             if (col.IsComputed)
-                columnType = "Computed, {0}, " + GetNullableString(col);
+                columnType = "Computed, {0}";
 
             return GetTypeName(dmvGenerator, col, columnType);
         }
@@ -221,7 +223,7 @@ namespace OrcaSql.Core.MetaData
                 columnFormat = string.Format(columnFormat, "{0}, " + GetNullableString(dataType));
             }
 
-            switch ((SystemType) sqlType.SystemTypeID)
+            switch ((SystemType)sqlType.SystemTypeID)
             {
                 case SystemType.Decimal:
                 case SystemType.Numeric:
@@ -247,7 +249,7 @@ namespace OrcaSql.Core.MetaData
                 case SystemType.Xml:
                     return string.Format(columnFormat, baseType.Name);
                 default:
-                    return string.Format(columnFormat, baseType.Name + "(" + (dataType.MaxLength == -1 ? "max" : (new[]{SystemType.Nchar, SystemType.Nvarchar}.Cast<byte>().Contains(baseType.SystemTypeID) ? dataType.MaxLength/2 :  dataType.MaxLength).ToString()) + ")");
+                    return string.Format(columnFormat, baseType.Name + "(" + (dataType.MaxLength == -1 ? "max" : (new[] { SystemType.Nchar, SystemType.Nvarchar }.Cast<byte>().Contains(baseType.SystemTypeID) ? dataType.MaxLength / 2 : dataType.MaxLength).ToString()) + ")");
             }
         }
 
