@@ -1,17 +1,17 @@
-using System.Collections.Generic;
-using System.Linq;
 using OrcaSql.Core.Engine.SqlTypes;
 using OrcaSql.Core.MetaData.DMVs;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace OrcaSql.Core.MetaData
 {
     public class DataExtractorHelper : Row
-    {   
+    {
         private readonly Row _dataRow;
         private readonly Dictionary<int, SysDefaultConstraint> _defaultConstraints;
         private readonly Dictionary<int, object> _cachedDefaultValues;
 
-        private DataExtractorHelper(IReadOnlyCollection<DataColumn> sourceColumns, DmvGenerator dmvGenerator, SystemInternalsPartitionColumn[] partitionColumns, SysDefaultConstraint[] defaultConstraints) 
+        private DataExtractorHelper(IReadOnlyCollection<DataColumn> sourceColumns, DmvGenerator dmvGenerator, SystemInternalsPartitionColumn[] partitionColumns, SysDefaultConstraint[] defaultConstraints)
         {
             _cachedDefaultValues = new Dictionary<int, object>();
             var newOrderedColumns = new List<DataColumn>();
@@ -23,11 +23,6 @@ namespace OrcaSql.Core.MetaData
                            join col in sourceColumns on pc.PartitionColumnID equals col.ColumnID into cols
                            from cc in cols.DefaultIfEmpty()
                            select cc ?? new DataColumn($"<<DROPPED{pc.PartitionColumnID}>>", DatabaseMetaData.GetTypeName(dmvGenerator, pc), pc.IsNullable)).ToList();
-
-                foreach (var dataColumn in sourceColumns.Where(x => x.Type == ColumnType.Computed))
-                {
-                    columns.Insert(dataColumn.ColumnID - 1 ?? 0, dataColumn);
-                }
 
                 _defaultConstraints = defaultConstraints?.ToDictionary(x => x.ParentColumnId) ?? new Dictionary<int, SysDefaultConstraint>();
             }
@@ -92,7 +87,7 @@ namespace OrcaSql.Core.MetaData
             if (_cachedDefaultValues.TryGetValue(col.ColumnID.Value, out var defaultValue))
                 return defaultValue;
 
-            if(!_defaultConstraints.TryGetValue(col.ColumnID.Value, out var defaultConstraint))
+            if (!_defaultConstraints.TryGetValue(col.ColumnID.Value, out var defaultConstraint))
                 return null;
 
             defaultValue = sqlType.GetDefaultValue(defaultConstraint);
