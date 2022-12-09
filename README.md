@@ -3,7 +3,7 @@ OrcaSql
 =======
 OrcaSql is a parser for Microsoft SQL Server data files. It allows you to read SQL Server data files without the use of SQL Server.
 
-This solution based on existing Mark's S. Rasmussen repository https://github.com/improvedk/OrcaMDF with the following enhancements:
+This solution is based on existing Mark's S. Rasmussen repository https://github.com/improvedk/OrcaMDF with the following enhancements:
 
  - modern data types support (Xml, HierarchyId, Geography, Geometry, DateTime2, DateTimeOffset);
  - improved formatting of the data shown in grid;
