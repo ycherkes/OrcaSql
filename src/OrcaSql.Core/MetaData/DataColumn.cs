@@ -32,7 +32,8 @@ namespace OrcaSql.Core.MetaData
 
             var typeNameWithoutNull = type.Replace(", not null", "").Replace(", null", "");
 
-            var match = Regex.Match(typeNameWithoutNull, "(?<=\\w+)\\((\\w+(\\(\\d+\\)*)*)\\)");
+//             var match = Regex.Match(typeNameWithoutNull, "(?<=\\w+)\\((\\w+(\\(\\d+\\)*)*)\\)");
+	    var match = Regex.Match(typeNameWithoutNull, "(?<=\\w+)\\((\\w+(\\(\\d+(.*)\\)*)*)\\)");
 
             var underlyingType = match.Success && !Regex.IsMatch(match.Groups[1].Value, "^\\d+|max$", RegexOptions.IgnoreCase) ? match.Groups[1].Value : typeNameWithoutNull;
 
