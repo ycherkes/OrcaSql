@@ -176,8 +176,14 @@
   <ItemGroup>
     <EmbeddedResource Include="SQLEditor\Resources\SyntaxModes.xml" />
   </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
-    <Folder Include="Plugins\" />
+    <Content Include="Plugins\YCherkes.SqlBackupReader.Demo.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Plugins\YCherkes.SqlBackupReaderPlugin.Demo.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
