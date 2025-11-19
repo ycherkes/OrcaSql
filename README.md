@@ -1,5 +1,5 @@
 
-This repository has reached the maintenance state: "**You need it, you fix it**". If you **find a bug** or **need a new feature**, please feel free to **create a PR**.
+This repository has reached the maintenance state: "**You need it, you fix it**". If you **find a bug** or **need a new feature**, please feel free to **create a** [Pull Request](https://github.com/ycherkes/OrcaSql/pulls).
 
 OrcaSql
 =======
