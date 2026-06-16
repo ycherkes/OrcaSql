@@ -19,9 +19,19 @@ namespace OrcaSql.Core.Engine
 		/// </summary>
 		public IEnumerable<Row> ScanTable(string tableName, int? schemaId = null, bool isSysTable = true)
 		{
+			return ScanTable(tableName, schemaId, isSysTable, null);
+		}
+
+		/// <summary>
+		/// Will scan any table - heap or clustered - and return an IEnumerable of generic rows with data & schema.
+		/// Deferred columns are materialized on first read.
+		/// </summary>
+		public IEnumerable<Row> ScanTable(string tableName, int? schemaId, bool isSysTable,
+			ISet<string> deferredColumns)
+		{
 			var schema = MetaData.GetEmptyDataRow(tableName, schemaId);
 
-			return ScanTable(tableName, schema, isSysTable);
+			return ScanTable(tableName, schema, isSysTable, deferredColumns);
 		}
 
         public DataRow GetEmptyDataRow(string tableName, int? schemaId = null)
@@ -66,7 +76,8 @@ namespace OrcaSql.Core.Engine
 			}
 		}
 
-		private IEnumerable<Row> ScanTable(string tableName, Row schema, bool isSysTable = true)
+		private IEnumerable<Row> ScanTable(string tableName, Row schema, bool isSysTable = true,
+			ISet<string> deferredColumns = null)
 		{
 			// Get object
 			var tableObject = Database.BaseTables.SysSchObjs
@@ -86,10 +97,11 @@ namespace OrcaSql.Core.Engine
 				throw new ArgumentException("Table has no partitions.");
 
 			// Loop all partitions and return results one by one
-			return partitions.SelectMany(partition => ScanPartition(partition.PartitionID, partition.PartitionNumber, schema, isSysTable));
+			return partitions.SelectMany(partition => ScanPartition(partition.PartitionID, partition.PartitionNumber, schema, isSysTable, deferredColumns));
 		}
 
-		private IEnumerable<Row> ScanPartition(long partitionID, int partitionNumber, Row schema, bool isSysTable = true)
+		private IEnumerable<Row> ScanPartition(long partitionID, int partitionNumber, Row schema, bool isSysTable = true,
+			ISet<string> deferredColumns = null)
 		{
 			// Lookup partition
 			var partition = Database.Dmvs.Partitions
@@ -117,7 +129,7 @@ namespace OrcaSql.Core.Engine
 
             var defaultConstraints = isSysTable ? null : Database.Dmvs.SysDefaultConstraints.Where(x => x.ParentObjectId == partition.ObjectID).ToArray();
 
-            var schemaWrapper = new DataExtractorHelper(schema, Database.Dmvs, null, partitionColumns, defaultConstraints);
+            var schemaWrapper = new DataExtractorHelper(schema, Database.Dmvs, null, partitionColumns, defaultConstraints, deferredColumns);
 
             // Heap tables won't have root pages, thus we can check whether a root page is defined for the HOBT allocation unit
             if (au.RootPagePointer != PagePointer.Zero && useClusteredIndex)

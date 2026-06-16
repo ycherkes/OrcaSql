@@ -70,8 +70,13 @@ namespace OrcaSql.Core.Engine.Records.Parsers
                                     // variable length columns, the value is empty by definition (that is, 0 bytes, but not null).
                                     if (variableColumnIndex < record.NumberOfVariableLengthColumns)
                                     {
-                                        var data = record.VariableLengthColumnData[variableColumnIndex].GetBytes()?.ToArray();
-                                        columnValue = sqlType.GetValue(data ?? new byte[0]);
+                                        if (schema.ShouldDefer(col))
+                                            columnValue = new DeferredColumnValue(record.VariableLengthColumnData[variableColumnIndex], sqlType);
+                                        else
+                                        {
+                                            var data = record.VariableLengthColumnData[variableColumnIndex].GetBytes()?.ToArray();
+                                            columnValue = sqlType.GetValue(data ?? new byte[0]);
+                                        }
                                     }
                                     else
                                         columnValue = sqlType.GetValue(new byte[0]);

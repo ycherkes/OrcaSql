@@ -1,7 +1,9 @@
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using NUnit.Framework;
 using OrcaSql.Core.Engine;
+using OrcaSql.Core.MetaData;
 using OrcaSql.Core.Tests.SqlServerVersion;
 
 namespace OrcaSql.Core.Tests.Features.LobTypes
@@ -113,6 +115,26 @@ namespace OrcaSql.Core.Tests.Features.LobTypes
 				var rows = scanner.ScanTable("VarcharMaxTest20000000").ToList();
 
 				Assert.AreEqual("".PadLeft(20000000, 'A'), rows[0].Field<string>("A"));
+			});
+		}
+
+		[SqlServerTest]
+		public void VarcharMaxDeferred(DatabaseVersion version)
+		{
+			// End-to-end: a real off-row varchar(MAX) value scanned with deferral on must
+			// come back as an unmaterialized IDeferredValue, and forcing it (directly or
+			// transparently via the row accessors) must yield the real value.
+			RunDatabaseTest(version, db =>
+			{
+				var scanner = new DataScanner(db);
+				var rows = scanner.ScanTable("VarcharMaxTest40201", null, true, new HashSet<string> { "A" }).ToList();
+
+				var raw = rows[0].GetRawValue("A");
+				Assert.IsInstanceOf<IDeferredValue>(raw, "Deferred column should not be materialized until forced.");
+
+				var expected = "".PadLeft(40201, 'A');
+				Assert.AreEqual(expected, ((IDeferredValue)raw).Force());
+				Assert.AreEqual(expected, rows[0].Field<string>("A"));
 			});
 		}
 

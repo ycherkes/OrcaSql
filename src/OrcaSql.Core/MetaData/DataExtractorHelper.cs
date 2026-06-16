@@ -1,5 +1,6 @@
 using OrcaSql.Core.Engine.SqlTypes;
 using OrcaSql.Core.MetaData.DMVs;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -11,7 +12,7 @@ namespace OrcaSql.Core.MetaData
         private readonly Dictionary<int, SysDefaultConstraint> _defaultConstraints;
         private readonly Dictionary<int, object> _cachedDefaultValues;
 
-        private DataExtractorHelper(IReadOnlyCollection<DataColumn> sourceColumns, DmvGenerator dmvGenerator, SystemInternalsPartitionColumn[] partitionColumns, SysDefaultConstraint[] defaultConstraints)
+        private DataExtractorHelper(IReadOnlyCollection<DataColumn> sourceColumns, DmvGenerator dmvGenerator, SystemInternalsPartitionColumn[] partitionColumns, SysDefaultConstraint[] defaultConstraints, ISet<string> deferredColumns)
         {
             _cachedDefaultValues = new Dictionary<int, object>();
             var newOrderedColumns = new List<DataColumn>();
@@ -30,6 +31,8 @@ namespace OrcaSql.Core.MetaData
             newOrderedColumns.AddRange(columns);
 
             Schema = new Schema(newOrderedColumns);
+            DeferredColumns = NormalizeDeferredColumns(deferredColumns);
+            ValidateDeferredColumns(newOrderedColumns);
 
             BitColumnsCount = newOrderedColumns.Count(x => x.UnderlyingType == ColumnType.Bit);
 
@@ -56,15 +59,56 @@ namespace OrcaSql.Core.MetaData
 
         public Dictionary<string, int> NonSparseIndexes { get; }
 
+        public ISet<string> DeferredColumns { get; }
+
+        public bool ShouldDefer(DataColumn column)
+        {
+            return DeferredColumns != null && DeferredColumns.Contains(column.Name);
+        }
+
         public DataExtractorHelper(Row dataRow, DmvGenerator dmvGenerator, IndexColumn[] clusteredIndexColumns,
-            SystemInternalsPartitionColumn[] partitionColumns, SysDefaultConstraint[] defaultConstraints) : this(dataRow.Columns, dmvGenerator, partitionColumns, defaultConstraints)
+            SystemInternalsPartitionColumn[] partitionColumns, SysDefaultConstraint[] defaultConstraints)
+            : this(dataRow, dmvGenerator, clusteredIndexColumns, partitionColumns, defaultConstraints, null)
+        {
+        }
+
+        public DataExtractorHelper(Row dataRow, DmvGenerator dmvGenerator, IndexColumn[] clusteredIndexColumns,
+            SystemInternalsPartitionColumn[] partitionColumns, SysDefaultConstraint[] defaultConstraints, ISet<string> deferredColumns) : this(dataRow.Columns, dmvGenerator, partitionColumns, defaultConstraints, deferredColumns)
         {
             this._dataRow = dataRow;
         }
 
-        public DataExtractorHelper(Row dataRow) : this(dataRow.Columns, null, null, null)
+        public DataExtractorHelper(Row dataRow) : this(dataRow, null)
+        {
+        }
+
+        public DataExtractorHelper(Row dataRow, ISet<string> deferredColumns) : this(dataRow.Columns, null, null, null, deferredColumns)
         {
             this._dataRow = dataRow;
+        }
+
+        private static ISet<string> NormalizeDeferredColumns(ISet<string> deferredColumns)
+        {
+            return deferredColumns == null || deferredColumns.Count == 0
+                ? null
+                : new HashSet<string>(deferredColumns, StringComparer.OrdinalIgnoreCase);
+        }
+
+        private void ValidateDeferredColumns(IEnumerable<DataColumn> columns)
+        {
+            if (DeferredColumns == null)
+                return;
+
+            var columnByName = columns.ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var deferredColumn in DeferredColumns)
+            {
+                if (!columnByName.TryGetValue(deferredColumn, out var column))
+                    throw new ArgumentException("Deferred column '" + deferredColumn + "' does not exist.");
+
+                if (!column.IsVariableLength || column.IsSparse || column.UnderlyingType == ColumnType.Computed)
+                    throw new ArgumentException("Deferred column '" + deferredColumn + "' is not a deferrable variable-length column.");
+            }
         }
 
         public override Row NewRow()

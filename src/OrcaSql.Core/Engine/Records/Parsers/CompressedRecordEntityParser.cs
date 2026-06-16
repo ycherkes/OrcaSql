@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using OrcaSql.Core.Engine.Pages;
+using OrcaSql.Core.Engine.Records;
 using OrcaSql.Core.Engine.Records.VariableLengthDataProxies;
 using OrcaSql.Core.Engine.SqlTypes;
 using OrcaSql.Core.MetaData;
@@ -32,8 +33,13 @@ namespace OrcaSql.Core.Engine.Records.Parsers
 
 					if (dataProxy == null)
 						dataRow[col] = null;
+					else if (schema.ShouldDefer(col))
+						dataRow[col] = new DeferredColumnValue(dataProxy, sqlType);
 					else
-						dataRow[col] = sqlType.GetValue(dataProxy.GetBytes().ToArray());
+					{
+						var data = dataProxy.GetBytes()?.ToArray();
+						dataRow[col] = sqlType.GetValue(data ?? new byte[0]);
+					}
 
 					columnIndex++;
 				}

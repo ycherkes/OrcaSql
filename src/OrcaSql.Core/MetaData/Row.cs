@@ -47,22 +47,60 @@ namespace OrcaSql.Core.MetaData
 			
 			if(u != null)
 			{
-				if (!data.ContainsKey(name) || data[name] == null)
+				if (!data.TryGetValue(name, out var value))
 					return default(T);
 
-				return (T)Convert.ChangeType(data[name], u);
+				value = ForceDeferredValue(value);
+
+				if (value == null)
+					return default(T);
+
+				if (value is T typedNullableValue)
+					return typedNullableValue;
+
+				return (T)Convert.ChangeType(value, u);
 			}
 
 			// This is ugly, but fast as columns will practically always be present.
 			// Exceptions are... The exception.
 			try
 			{
-				return (T)Convert.ChangeType(data[name], t);
+				var value = GetValue(name);
+
+				if (value is T typedValue)
+					return typedValue;
+
+				return (T)Convert.ChangeType(value, t);
 			}
 			catch (KeyNotFoundException)
 			{
 				return (T)Convert.ChangeType(null, t);
 			}
+		}
+
+		public object GetRawValue(string name)
+		{
+			EnsureColumnExists(name);
+
+			return data.TryGetValue(name, out var value) ? value : null;
+		}
+
+		public object GetRawValue(DataColumn col)
+		{
+			return GetRawValue(col.Name);
+		}
+
+		private object GetValue(string name)
+		{
+			if (!data.TryGetValue(name, out var value))
+				throw new KeyNotFoundException();
+
+			return ForceDeferredValue(value);
+		}
+
+		private static object ForceDeferredValue(object value)
+		{
+			return value is IDeferredValue deferredValue ? deferredValue.Force() : value;
 		}
 
 		public object this[string name]
@@ -71,7 +109,7 @@ namespace OrcaSql.Core.MetaData
 			{
 				EnsureColumnExists(name);
 
-				return data.TryGetValue(name, out var value) ? value : null;
+				return data.TryGetValue(name, out var value) ? ForceDeferredValue(value) : null;
             }
 			set
 			{
