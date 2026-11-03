@@ -16,11 +16,40 @@ namespace OrcaSql.Core.Engine.Records
 		public short NumberOfColumns { get; protected set; }
 		public BitArray NullBitmap { get; protected set; }
 		public short NumberOfVariableLengthColumns { get; protected set; }
-		public byte[] RawBytes { get; protected set; }
+		public byte[] RawBytes
+		{
+			get
+			{
+				if (rawBytes == null && rawSource != null)
+				{
+					rawBytes = Slice(rawSource, rawStart, rawLength);
+					rawSource = null;
+				}
+
+				return rawBytes;
+			}
+			protected set => rawBytes = value;
+		}
 		public SparseVectorParser SparseVector { get; private set; }
 		public IDictionary<int, IVariableLengthDataProxy> VariableLengthColumnData { get; set; }
 
 		protected Page Page;
+
+		private byte[] rawBytes;
+		private byte[] rawSource;
+		private int rawStart;
+		private int rawLength;
+
+		/// <summary>
+		/// RawBytes are rarely read, so they're only copied out of the page when asked for.
+		/// </summary>
+		protected void SetRawBytes(byte[] source, int start, int length)
+		{
+			rawBytes = null;
+			rawSource = source;
+			rawStart = start;
+			rawLength = length;
+		}
 		protected IDictionary<int, byte[]> RawVariableLengthColumnData { get; set; }
 
 		protected Record(Page page)
@@ -34,19 +63,31 @@ namespace OrcaSql.Core.Engine.Records
 
 		protected void ParseVariableLengthColumns(byte[] bytes, ref short offset)
 		{
+			ParseVariableLengthColumns(bytes, ref offset, 0);
+		}
+
+		/// <param name="start">Where the record begins in <paramref name="bytes"/>; offsets are relative to it.</param>
+		protected void ParseVariableLengthColumns(byte[] bytes, ref short offset, int start)
+		{
 			// If there is no fixed length data and no null bitmap, only the number of variable length columns is stored.
 			if (FixedLengthData.Length == 0 && !HasNullBitmap)
 				NumberOfVariableLengthColumns = NumberOfColumns;
 			else
 			{
-				NumberOfVariableLengthColumns = BitConverter.ToInt16(bytes, offset);
+				NumberOfVariableLengthColumns = BitConverter.ToInt16(bytes, start + offset);
 				offset += 2;
+			}
+
+			if (NumberOfVariableLengthColumns > 0 && RawVariableLengthColumnData.Count == 0 && VariableLengthColumnData.Count == 0)
+			{
+				RawVariableLengthColumnData = new Dictionary<int, byte[]>(NumberOfVariableLengthColumns);
+				VariableLengthColumnData = new Dictionary<int, IVariableLengthDataProxy>(NumberOfVariableLengthColumns);
 			}
 
 			short[] variableLengthColumnLengths = new short[NumberOfVariableLengthColumns];
 			for (int i = 0; i < NumberOfVariableLengthColumns; i++)
 			{
-				variableLengthColumnLengths[i] = BitConverter.ToInt16(bytes, offset);
+				variableLengthColumnLengths[i] = BitConverter.ToInt16(bytes, start + offset);
 				offset += 2;
 			}
 
@@ -62,7 +103,7 @@ namespace OrcaSql.Core.Engine.Records
 					complexColumn = true;
 				}
 
-				RawVariableLengthColumnData[i] = bytes.Skip(offset).Take(variableLengthColumnLengths[i] - offset).ToArray();
+				RawVariableLengthColumnData[i] = Slice(bytes, start + offset, variableLengthColumnLengths[i] - offset);
 				offset = variableLengthColumnLengths[i];
 
 				// Complex columns store special values and may need to be read elsewhere. In this case I'm using somewhat of a hack to detect
@@ -124,9 +165,27 @@ namespace OrcaSql.Core.Engine.Records
 			}
 		}
 
+		/// <summary>
+		/// Copies count bytes from index, like Skip(index).Take(count).ToArray(): it never reads past the end of the
+		/// array and a negative count gives an empty array.
+		/// </summary>
+		protected static byte[] Slice(byte[] bytes, int index, int count)
+		{
+			count = Math.Max(0, Math.Min(count, bytes.Length - index));
+			var result = new byte[count];
+			if (count > 0)
+				Buffer.BlockCopy(bytes, index, result, 0, count);
+			return result;
+		}
+
 		protected short ParseNullBitmap(byte[] bytes, ref short offset)
 		{
-			NullBitmap = new BitArray(bytes.Skip(offset).Take((NumberOfColumns + 7)/8).ToArray());
+			return ParseNullBitmap(bytes, ref offset, 0);
+		}
+
+		protected short ParseNullBitmap(byte[] bytes, ref short offset, int start)
+		{
+			NullBitmap = new BitArray(Slice(bytes, start + offset, (NumberOfColumns + 7) / 8));
 			offset += (short)((NumberOfColumns + 7) / 8);
 			return offset;
 		}

@@ -20,10 +20,18 @@ namespace OrcaSql.Core.MetaData
 
             if (partitionColumns != null)
             {
-                columns = (from pc in partitionColumns
-                           join col in sourceColumns on pc.PartitionColumnID equals col.ColumnID into cols
-                           from cc in cols.DefaultIfEmpty()
-                           select cc ?? new DataColumn($"<<DROPPED{pc.PartitionColumnID}>>", DatabaseMetaData.GetTypeName(dmvGenerator, pc), pc.IsNullable)).ToList();
+                var pairs = (from pc in partitionColumns
+                             join col in sourceColumns on pc.PartitionColumnID equals col.ColumnID into cols
+                             from cc in cols.DefaultIfEmpty()
+                             select new { pc, col = cc ?? new DataColumn($"<<DROPPED{pc.PartitionColumnID}>>", DatabaseMetaData.GetTypeName(dmvGenerator, pc), pc.IsNullable) }).ToList();
+                columns = pairs.Select(x => x.col).ToList();
+
+                // Physical layout of each column inside the record, as stored in sysrscols. Computing it by adding up
+                // column lengths in order breaks once columns have been altered in place or dropped.
+                Physical = new Dictionary<DataColumn, SystemInternalsPartitionColumn>();
+                foreach (var x in pairs)
+                    if (!x.pc.IsUniqueifier && x.pc.LeafNullBit > 0)
+                        Physical[x.col] = x.pc;
 
                 _defaultConstraints = defaultConstraints?.ToDictionary(x => x.ParentColumnId) ?? new Dictionary<int, SysDefaultConstraint>();
             }
@@ -58,6 +66,11 @@ namespace OrcaSql.Core.MetaData
         }
 
         public Dictionary<string, int> NonSparseIndexes { get; }
+
+        /// <summary>
+        /// Physical location (leaf_offset, leaf_null_bit, leaf_bit_position) of each column, when known.
+        /// </summary>
+        internal Dictionary<DataColumn, SystemInternalsPartitionColumn> Physical { get; private set; }
 
         public ISet<string> DeferredColumns { get; }
 
@@ -120,7 +133,7 @@ namespace OrcaSql.Core.MetaData
 
         public bool IsDroppedColumn(DataColumn col)
         {
-            return col.Name.StartsWith("<<DROPPED");
+            return col.Name.StartsWith("<<DROPPED", System.StringComparison.Ordinal);
         }
 
         public object GetDefaultValue(DataColumn col, ISqlType sqlType)

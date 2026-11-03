@@ -18,11 +18,15 @@ namespace OrcaSql.Core.Engine.Pages
 				throw new ArgumentException("bytes");
 
 			Database = database;
+			Bytes = bytes;
 			RawBytes = bytes;
 			Header = new PageHeader(RawHeader);
 		}
 
-		public byte[] RawHeader => RawBytes.Take(96).ToArray();
+		// The same 8192 bytes as RawBytes, without copying them on every access.
+		internal byte[] Bytes { get; }
+
+		public byte[] RawHeader => Framework.ArrayHelper.SliceArray(Bytes, 0, 96);
 
         public byte[] RawBody => RawBytes.Skip(96).ToArray();
 

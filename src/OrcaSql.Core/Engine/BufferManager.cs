@@ -13,6 +13,19 @@ namespace OrcaSql.Core.Engine
         private readonly Database database;
         private readonly Dictionary<short, Dictionary<long, byte[]>> buffer = new Dictionary<short, Dictionary<long, byte[]>>();
         private readonly Dictionary<short, Dictionary<long, byte[]>> headersBuffer = new Dictionary<short, Dictionary<long, byte[]>>();
+        private readonly Dictionary<short, ReadAheadWindow> readAhead = new Dictionary<short, ReadAheadWindow>();
+
+        // Pages that aren't cached (table scans) are read ahead in blocks of this many pages once the reads turn
+        // sequential, so scanning consecutive pages costs one read per block instead of one per page.
+        private const int ReadAheadPages = 64;
+
+        private class ReadAheadWindow
+        {
+            public readonly byte[] Data = new byte[ReadAheadPages * 8192];
+            public long FirstPage = -1;
+            public int PageCount;
+            public long LastMissedPage = -2;
+        }
 
         internal BufferManager(Database db)
         {
@@ -23,6 +36,7 @@ namespace OrcaSql.Core.Engine
             {
                 buffer.Add(file.Key, new Dictionary<long, byte[]>());
                 headersBuffer.Add(file.Key, new Dictionary<long, byte[]>());
+                readAhead.Add(file.Key, new ReadAheadWindow());
             }
         }
 
@@ -35,7 +49,7 @@ namespace OrcaSql.Core.Engine
             
             if (!putResultToCache)
             {
-                var page = getPageFromDisk(fileID, pageID);
+                var page = getPageReadingAhead(fileID, pageID);
                 return page;
             }
 
@@ -55,6 +69,44 @@ namespace OrcaSql.Core.Engine
 
             // Return result from buffer
             return buffer[fileID][pageID];
+        }
+
+        /// <summary>
+        /// Like getPageFromDisk, but once the requested pages are consecutive it reads ReadAheadPages pages at a time
+        /// and serves the following requests from that block. Random reads still read a single page.
+        /// </summary>
+        private byte[] getPageReadingAhead(short fileID, long pageID)
+        {
+            var window = readAhead[fileID];
+
+            lock (window)
+            {
+                if (pageID < window.FirstPage || pageID >= window.FirstPage + window.PageCount)
+                {
+                    bool sequential = pageID == window.LastMissedPage + 1 || pageID == window.FirstPage + window.PageCount;
+                    window.LastMissedPage = pageID;
+
+                    if (!sequential)
+                        return getPageFromDisk(fileID, pageID);
+
+                    var fs = database.Files[fileID];
+                    fs.Seek(pageID * 8192, SeekOrigin.Begin);
+
+                    int read = 0, n;
+                    while (read < window.Data.Length && (n = fs.Read(window.Data, read, window.Data.Length - read)) > 0)
+                        read += n;
+
+                    window.FirstPage = pageID;
+                    window.PageCount = read / 8192;
+
+                    if (window.PageCount == 0)
+                        return getPageFromDisk(fileID, pageID);
+                }
+
+                var bytes = new byte[8192];
+                Buffer.BlockCopy(window.Data, (int)(pageID - window.FirstPage) * 8192, bytes, 0, 8192);
+                return bytes;
+            }
         }
 
         /// <summary>

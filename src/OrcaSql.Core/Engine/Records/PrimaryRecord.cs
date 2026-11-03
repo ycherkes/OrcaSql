@@ -1,6 +1,4 @@
 using System;
-using System.Collections;
-using System.Linq;
 using OrcaSql.Core.Engine.Pages;
 
 namespace OrcaSql.Core.Engine.Records
@@ -11,28 +9,41 @@ namespace OrcaSql.Core.Engine.Records
 		public bool IsGhostForwardedRecord { get; private set; }
 
 		public PrimaryRecord(byte[] bytes, Page page)
+			: this(bytes, 0, page)
+		{ }
+
+		/// <summary>
+		/// Parses the record that begins at <paramref name="start"/> in <paramref name="bytes"/> (usually the whole
+		/// page), so the page doesn't have to be copied for every record.
+		/// </summary>
+		public PrimaryRecord(byte[] bytes, int start, Page page)
 			: base(page)
 		{
 			short offset = 0;
 
 			// Parse status bits A
-			parseStatusBitsA(new BitArray(new [] { bytes[offset++] }));
+			parseStatusBitsA(bytes[start + offset++]);
 
 			// TODO: Strategize this stuff to avoid ifs, switches & impersonation
 			if(Type == RecordType.ForwardingStub)
 			{
 				// Forwarding stub only has one status byte. Remaining 8 bytes are for (PageID, FileID, Slot)
-				FixedLengthData = bytes.Skip(1).Take(8).ToArray();
+				FixedLengthData = Slice(bytes, start + 1, 8);
 				
-				int pageID = BitConverter.ToInt32(bytes, 1);
-				short fileID = BitConverter.ToInt16(bytes, 5);
-				short slot = BitConverter.ToInt16(bytes, 7);
+				int pageID = BitConverter.ToInt32(bytes, start + 1);
+				short fileID = BitConverter.ToInt16(bytes, start + 5);
+				short slot = BitConverter.ToInt16(bytes, start + 7);
 
-				var forwardPage = page.Database.GetPrimaryRecordPage(new PagePointer(fileID, pageID), CompressionContext.NoCompression);
-				byte[] forwardedRecordBytes = forwardPage.Records[slot].RawBytes;
+				// Only the referenced record is needed, not the rest of its page.
+				var forwardPageBytes = page.Database.GetPageBytes(new PagePointer(fileID, pageID));
+				short slotCount = BitConverter.ToInt16(forwardPageBytes, 22);
+				if (slot < 0 || slot >= slotCount)
+					throw new IndexOutOfRangeException("Forwarded record slot " + slot + " does not exist on page " + fileID + ":" + pageID + ".");
 
-				parseStatusBitsA(new BitArray(new[] {forwardedRecordBytes[0]}));
-				bytes = forwardedRecordBytes;
+				bytes = forwardPageBytes;
+				start = BitConverter.ToInt16(forwardPageBytes, forwardPageBytes.Length - slot * 2 - 2);
+
+				parseStatusBitsA(bytes[start]);
 
 				// We'll impersonate the ForwardingStub record type that we originated from, this allows
 				// the engine to distinguish BlobFragments and the records that actually reference them.
@@ -40,48 +51,48 @@ namespace OrcaSql.Core.Engine.Records
 			}
 
 			// Parse status bits B
-			parseStatusBitsB(bytes[offset++]);
+			parseStatusBitsB(bytes[start + offset++]);
 
 			// Parse fixed length size
-			short fixedLengthSize = BitConverter.ToInt16(bytes, offset);
+			short fixedLengthSize = BitConverter.ToInt16(bytes, start + offset);
 			fixedLengthSize -= 4;
 			offset += 2;
 
 			// Parse fixed length data
-			FixedLengthData = bytes.Skip(offset).Take(fixedLengthSize).ToArray();
+			FixedLengthData = Slice(bytes, start + offset, fixedLengthSize);
 			offset += fixedLengthSize;
 
 			// Parse number of columns
-			NumberOfColumns = BitConverter.ToInt16(bytes, offset);
+			NumberOfColumns = BitConverter.ToInt16(bytes, start + offset);
 			offset += 2;
 
 			// Parse null bitmap, if present
 			if (HasNullBitmap)
-				offset = ParseNullBitmap(bytes, ref offset);
+				offset = ParseNullBitmap(bytes, ref offset, start);
 
 			// Parse variable length columns, if present
 			if (HasVariableLengthColumns)
-				ParseVariableLengthColumns(bytes, ref offset);
+				ParseVariableLengthColumns(bytes, ref offset, start);
 
 			// Save complete record raw bytes
-			RawBytes = bytes.Take(offset).ToArray();
+			SetRawBytes(bytes, start, offset);
 		}
 
-		private void parseStatusBitsA(BitArray bits)
+		private void parseStatusBitsA(byte bits)
 		{
 			// Bit 0 (versioning bit) we don't care about as it's always 0 in 2k8+
 
 			// Bits 1-3 represents record type
-			Type = (RecordType)((Convert.ToByte(bits[1])) + (Convert.ToByte(bits[2]) << 1) + (Convert.ToByte(bits[3]) << 2));
+			Type = (RecordType)((bits >> 1) & 7);
 
 			// Bit 4 determines whether a null bitmap is present
-			HasNullBitmap = bits[4];
+			HasNullBitmap = (bits & 0x10) != 0;
 
 			// Bit 5 determines whether there are variable length columns
-			HasVariableLengthColumns = bits[5];
+			HasVariableLengthColumns = (bits & 0x20) != 0;
 
 			// Bit 6 determines whether the row contains versioning information
-			HasVersioningInformation = bits[6];
+			HasVersioningInformation = (bits & 0x40) != 0;
 
 			// Bit 7 isn't used in 2k8+
 		}

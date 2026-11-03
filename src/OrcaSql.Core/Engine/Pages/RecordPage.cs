@@ -18,7 +18,7 @@ namespace OrcaSql.Core.Engine.Pages
 			SlotArray = new short[Header.SlotCnt];
 
 			for (int i = 0; i < Header.SlotCnt; i++)
-				SlotArray[i] = BitConverter.ToInt16(RawBytes.ToArray(), RawBytes.Count - i * 2 - 2);
+				SlotArray[i] = BitConverter.ToInt16(Bytes, Bytes.Length - i * 2 - 2);
 		}
 	}
 }

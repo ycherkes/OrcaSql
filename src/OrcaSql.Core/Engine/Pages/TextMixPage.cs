@@ -20,7 +20,7 @@ namespace OrcaSql.Core.Engine.Pages
 
 			int cnt = 0;
 			foreach (short recordOffset in SlotArray)
-				Records[cnt++] = new TextRecord(ArrayHelper.SliceArray(RawBytes.ToArray(), recordOffset, RawBytes.Count - recordOffset), this);
+				Records[cnt++] = new TextRecord(ArrayHelper.SliceArray(Bytes, recordOffset, Bytes.Length - recordOffset), this);
 		}
 	}
 }

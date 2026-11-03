@@ -44,7 +44,8 @@ namespace OrcaSql.Core.Engine
         {
             foreach (var file in files)
             {
-                var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read);
+                // No FileStream buffer: every read is at least a whole page, so it would only add a copy.
+                var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 1);
 
                 InitDatabaseStream(fs, file);
             }
@@ -133,7 +134,7 @@ namespace OrcaSql.Core.Engine
             return new PrimaryRecordPage(GetPageBytes(loc, isSysTable), compression, this);
         }
 
-        private byte[] GetPageBytes(PagePointer pagePointer, bool putResultsToCache = true)
+        internal byte[] GetPageBytes(PagePointer pagePointer, bool putResultsToCache = true)
         {
             return _bufferManager.GetPageBytes(pagePointer.FileID, pagePointer.PageID, putResultsToCache);
         }
