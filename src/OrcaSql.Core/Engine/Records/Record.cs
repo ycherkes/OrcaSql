@@ -61,8 +61,13 @@ namespace OrcaSql.Core.Engine.Records
 			VariableLengthColumnData = new Dictionary<int, IVariableLengthDataProxy>();
 		}
 
+		protected void ParseVariableLengthColumns(byte[] bytes, ref short offset)
+		{
+			ParseVariableLengthColumns(bytes, ref offset, 0);
+		}
+
 		/// <param name="start">Where the record begins in <paramref name="bytes"/>; offsets are relative to it.</param>
-		protected void ParseVariableLengthColumns(byte[] bytes, ref short offset, int start = 0)
+		protected void ParseVariableLengthColumns(byte[] bytes, ref short offset, int start)
 		{
 			// If there is no fixed length data and no null bitmap, only the number of variable length columns is stored.
 			if (FixedLengthData.Length == 0 && !HasNullBitmap)
@@ -173,7 +178,12 @@ namespace OrcaSql.Core.Engine.Records
 			return result;
 		}
 
-		protected short ParseNullBitmap(byte[] bytes, ref short offset, int start = 0)
+		protected short ParseNullBitmap(byte[] bytes, ref short offset)
+		{
+			return ParseNullBitmap(bytes, ref offset, 0);
+		}
+
+		protected short ParseNullBitmap(byte[] bytes, ref short offset, int start)
 		{
 			NullBitmap = new BitArray(Slice(bytes, start + offset, (NumberOfColumns + 7) / 8));
 			offset += (short)((NumberOfColumns + 7) / 8);

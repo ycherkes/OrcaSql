@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using NUnit.Framework;
 using OrcaSql.Core.Engine;
+using OrcaSql.Core.MetaData;
 using OrcaSql.Core.Tests.SqlServerVersion;
 
 namespace OrcaSql.Core.Tests.Features.AlteredColumns
@@ -71,19 +73,44 @@ namespace OrcaSql.Core.Tests.Features.AlteredColumns
 			RunDatabaseTest(version, db =>
 			{
 				var scanner = new DataScanner(db);
-				var rows = scanner.ScanTable("HeapForwarded", null, false).OrderBy(x => x.Field<int>("A")).ToList();
-
-				Assert.AreEqual(3, rows.Count);
-
-				Assert.AreEqual("".PadLeft(5000, 'A'), rows[0].Field<string>("B"));
-				Assert.AreEqual("", rows[0].Field<string>("C"));
-
-				Assert.AreEqual("".PadLeft(4000, 'B'), rows[1].Field<string>("B"));
-				Assert.AreEqual("", rows[1].Field<string>("C"));
-
-				Assert.AreEqual("".PadLeft(5000, 'C'), rows[2].Field<string>("B"));
-				Assert.AreEqual("", rows[2].Field<string>("C"));
+				AssertHeapForwardedRows(scanner.ScanTable("HeapForwarded", null, false));
 			});
+		}
+
+		[SqlServerTest]
+		public void HeapForwardedRecordsDefaultScan(DatabaseVersion version)
+		{
+			RunDatabaseTest(version, db =>
+			{
+				var scanner = new DataScanner(db);
+				AssertHeapForwardedRows(scanner.ScanTable("HeapForwarded"));
+			});
+		}
+
+		[SqlServerTest]
+		public void HeapForwardedRecordsDeferredColumns(DatabaseVersion version)
+		{
+			RunDatabaseTest(version, db =>
+			{
+				var scanner = new DataScanner(db);
+				var deferredColumns = new HashSet<string> { "B", "C" };
+				AssertHeapForwardedRows(scanner.ScanTable("HeapForwarded", null, true, deferredColumns));
+				AssertHeapForwardedRows(scanner.ScanTable("HeapForwarded", null, false, deferredColumns));
+			});
+		}
+
+		private static void AssertHeapForwardedRows(IEnumerable<Row> scan)
+		{
+			var rows = scan.OrderBy(x => x.Field<int>("A")).ToList();
+
+			Assert.AreEqual(3, rows.Count);
+			Assert.AreEqual(new[] { 1, 2, 3 }, rows.Select(x => x.Field<int>("A")).ToArray());
+			Assert.AreEqual("".PadLeft(5000, 'A'), rows[0].Field<string>("B"));
+			Assert.AreEqual("", rows[0].Field<string>("C"));
+			Assert.AreEqual("".PadLeft(4000, 'B'), rows[1].Field<string>("B"));
+			Assert.AreEqual("", rows[1].Field<string>("C"));
+			Assert.AreEqual("".PadLeft(5000, 'C'), rows[2].Field<string>("B"));
+			Assert.AreEqual("", rows[2].Field<string>("C"));
 		}
 
 		protected override void RunSetupQueries(SqlConnection conn, DatabaseVersion version)

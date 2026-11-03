@@ -87,15 +87,16 @@ namespace OrcaSql.Core.Engine.Records.Parsers
                                 // If there's either no null bitmap, or the null bitmap defines the column as non-null.
                                 if (!record.HasNullBitmap || !record.NullBitmap[nonSparseIndex])
                                 {
-                                    // If the current variable length column index exceeds the number of stored
-                                    // variable length columns, the value is empty by definition (that is, 0 bytes, but not null).
-                                    if (variableColumnIndex < record.NumberOfVariableLengthColumns)
+                                    // Trailing empty columns may be beyond the stored slots or occupy a forwarded
+                                    // record's back-pointer slot, which has no data proxy. Both mean empty, not null.
+                                    if (variableColumnIndex < record.NumberOfVariableLengthColumns &&
+                                        record.VariableLengthColumnData.TryGetValue(variableColumnIndex, out var dataProxy))
                                     {
                                         if (schema.ShouldDefer(col))
-                                            columnValue = new DeferredColumnValue(record.VariableLengthColumnData[variableColumnIndex], sqlType);
+                                            columnValue = new DeferredColumnValue(dataProxy, sqlType);
                                         else
                                         {
-                                            var data = record.VariableLengthColumnData[variableColumnIndex].GetBytes()?.ToArray();
+                                            var data = dataProxy.GetBytes()?.ToArray();
                                             columnValue = sqlType.GetValue(data ?? new byte[0]);
                                         }
                                     }
